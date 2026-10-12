@@ -17,6 +17,7 @@ import threading
 import time
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from teams import canon, FG_TO_CANON
@@ -97,10 +98,33 @@ KEEP_COLS = [
 ]
 
 
+def plain(df: pd.DataFrame) -> pd.DataFrame:
+    """Turn pandas' nullable column types (Int64, Float64, string, boolean) into plain numpy ones.
+    Real Statcast downloads use them, and a missing value in one breaks numpy maths."""
+    if df is None or df.empty:
+        return df
+    ext = [c for c in df.columns if pd.api.types.is_extension_array_dtype(df[c].dtype)
+           and not isinstance(df[c].dtype, pd.DatetimeTZDtype)]
+    if not ext:
+        return df
+    df = df.copy()
+    for c in ext:
+        s, dt = df[c], df[c].dtype
+        if pd.api.types.is_bool_dtype(dt):
+            df[c] = s.astype("float64") if s.isna().any() else s.astype(bool)
+        elif pd.api.types.is_integer_dtype(dt):
+            df[c] = s.astype("float64") if s.isna().any() else s.astype("int64")
+        elif pd.api.types.is_float_dtype(dt):
+            df[c] = s.astype("float64")
+        else:  # string / categorical
+            df[c] = s.astype(object).where(s.notna(), np.nan)
+    return df
+
+
 def _normalize(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame()
-    df = df[[c for c in KEEP_COLS if c in df.columns]].copy()
+    df = plain(df[[c for c in KEEP_COLS if c in df.columns]].copy())
     for c in ("home_team", "away_team"):
         if c in df:
             df[c] = df[c].map(canon)

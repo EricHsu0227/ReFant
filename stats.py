@@ -44,6 +44,8 @@ def prep(df: pd.DataFrame) -> pd.DataFrame:
     """Add derived columns used everywhere. Idempotent."""
     if df is None or df.empty or "_prepped" in df.columns:
         return df
+    import data as _data
+    df = _data.plain(df)
     df = df.sort_values(["game_date", "game_pk", "at_bat_number", "pitch_number"]).reset_index(drop=True).copy()
     top = df["inning_topbot"].eq("Top")
     df["bat_team"] = np.where(top, df["away_team"], df["home_team"])

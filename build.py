@@ -96,12 +96,21 @@ def main():
     # ---------------- download / load data, compute every season's stats
     for y in full_years:
         log(f"Regular season {y}: loading every day (cached days are instant)…")
-        df = data.get_regular_season(y)
+        try:
+            df = data.get_regular_season(y)
+        except Exception:  # noqa: BLE001
+            problems.append(f"downloading {y} failed:\n{traceback.format_exc(limit=6)}")
+            continue
         if df.empty:
             problems.append(f"no regular-season data for {y}")
             continue
         log(f"  {df['game_pk'].nunique()} games, {len(df):,} pitches — computing stats…")
-        s = LG.season(y, "R")
+        try:
+            s = LG.season(y, "R")
+        except Exception:  # noqa: BLE001
+            problems.append(f"computing {y} stats failed:\n{traceback.format_exc(limit=8)}")
+            log(problems[-1])
+            continue
         if not s:
             problems.append(f"could not compute {y}")
             continue
@@ -126,7 +135,12 @@ def main():
         built["post"].add(y)
         if not post.empty:
             built["games"].update(int(p) for p in post["game_pk"].unique())
-            sp = LG.season(y, "P")
+            try:
+                sp = LG.season(y, "P")
+            except Exception:  # noqa: BLE001
+                problems.append(f"computing {y} postseason stats failed:\n{traceback.format_exc(limit=8)}")
+                log(problems[-1])
+                sp = None
             if sp:
                 built["players"].update(int(p) for p in sp["bat"].index)
                 built["players"].update(int(p) for p in sp["pit"].index)
@@ -196,6 +210,21 @@ def main():
     sw = (ROOT / "sw_template.js").read_text().replace("__VERSION__", dt.datetime.now().strftime("%Y%m%d%H%M"))
     (OUT / "sw.js").write_text(sw)
     (OUT / ".nojekyll").write_text("")
+
+    # public build report, so problems can be read without signing in to GitHub
+    import html as _html
+    status = {"updated": built["updated"], "pages": count, "full_seasons": sorted(built["full"]),
+              "postseasons": sorted(built["post"]), "players": len(built["players"]), "games": len(built["games"]),
+              "problems": problems[:200]}
+    (OUT / "status").mkdir(exist_ok=True)
+    (OUT / "status" / "status.json").write_text(json.dumps(status, indent=1, default=str))
+    rows = "".join(f"<li><pre>{_html.escape(p)}</pre></li>" for p in problems[:200]) or "<li>No problems.</li>"
+    (OUT / "status" / "index.html").write_text(
+        f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
+        f"<title>Build status</title><body style='font:14px system-ui;margin:16px'><h1>ReFant build status</h1>"
+        f"<p>Updated {built['updated']} · {count} pages · seasons {status['full_seasons']} · postseasons {status['postseasons']}"
+        f" · {status['players']} players · {status['games']} games</p><h2>Problems ({len(problems)})</h2>"
+        f"<ol style='padding-left:18px'>{rows}</ol><style>pre{{white-space:pre-wrap;font-size:12px;background:#f4f4f4;padding:8px}}</style>")
 
     log(f"Done: {count} pages in {OUT}")
     if problems:
