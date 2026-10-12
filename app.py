@@ -1,4 +1,4 @@
-"""SavantRef — a Baseball-Reference-style site built on Baseball Savant + FanGraphs data.
+"""ReFant — Baseball Reference + Baseball Savant + FanGraphs in one site.
 
 Run:  python app.py   then open http://127.0.0.1:5000
 """
@@ -118,14 +118,46 @@ def has_post(year):
     return True if b is None else int(year) in b["post"]
 
 
+def has_player(pid):
+    b = _built()
+    try:
+        return True if b is None else int(pid) in b["players"]
+    except (TypeError, ValueError):
+        return False
+
+
+def has_full(year):
+    b = _built()
+    return True if b is None else int(year) in b.get("full", set())
+
+
 @app.context_processor
 def helpers():
     b = _built()
+    yr, yp = years()
     return dict(team_name=team_name, TEAMS=TEAMS, league=league, now_year=dt.date.today().year,
+                YEARS_R=yr, YEARS_P=yp, LATEST=(yr[-1] if yr else (yp[-1] if yp else dt.date.today().year)),
+                LATEST_POST=(yp[-1] if yp else None), endpoint=request.endpoint,
                 STATIC=bool(app.config.get("STATIC")), BUILT=b, has_team=has_team, has_game=has_game, has_post=has_post,
+                has_player=has_player, has_full=has_full,
                 built_years=sorted(set(b["post"]) | {int(k.split("-")[1]) for k in b["teams"]}, reverse=True) if b else None,
                 savant=lambda pid: f"https://baseballsavant.mlb.com/savant-player/{pid}",
                 fg_note=lambda df: "fg_WAR" in df.columns and df["fg_WAR"].notna().any() if df is not None and len(df) else False)
+
+
+def years():
+    """(regular-season years with full league data, postseason years) for this site."""
+    if "YEARS_R" in app.config:
+        return app.config["YEARS_R"], app.config["YEARS_P"]
+    import json
+    from pathlib import Path
+    cfg = Path(__file__).parent / "site.json"
+    c = json.loads(cfg.read_text()) if cfg.exists() else {}
+    from siteconf import years as parse
+    yr = parse(c.get("full_seasons", ["now"]))
+    yp = sorted(set(parse(c.get("postseasons", ["2015-now"]))) | set(yr))
+    app.config["YEARS_R"], app.config["YEARS_P"] = yr, yp
+    return yr, yp
 
 
 def _refresh():
@@ -155,24 +187,6 @@ def post_data(year, refresh=False):
 
 
 # ------------------------------------------------------------------ pages
-@app.route("/")
-def index():
-    this_year = dt.date.today().year
-    years = list(range(this_year, data.FIRST_STATCAST_YEAR - 1, -1))
-    return render_template("index.html", years=years, cached=set(data.cached_seasons()))
-
-
-@app.route("/go")
-def go():
-    year = request.args.get("year", type=int)
-    team = request.args.get("team")
-    if year and team:
-        return redirect(url_for("team_season", team=team, year=year))
-    if year:
-        return redirect(url_for("season", year=year))
-    return redirect(url_for("index"))
-
-
 @app.route("/season/<int:year>")
 def season(year):
     post, series = post_data(year, _refresh())
@@ -221,48 +235,6 @@ def series_page(year, sid):
                            leaders=leaders, goats=goats, path=path, all_series=series)
 
 
-@app.route("/team/<team>/<int:year>")
-def team_season(team, year):
-    team = canon(team)
-    if team not in TEAMS:
-        abort(404)
-    names = data.get_names()
-    df = S.prep(data.get_team_season(team, year, refresh=_refresh()))
-    rec = S.team_record(df, team) if not df.empty else {}
-    fgb, fgp = data.get_fangraphs("bat", year), data.get_fangraphs("pit", year)
-    bat = pit = None
-    bat_tot = pit_tot = {}
-    if not df.empty:
-        pos = S.primary_positions(df[df["fld_team"] == team])
-        bat = S.batting_table(df, team, names, order="pa")
-        bat["Pos"] = bat["id"].map(pos).fillna("DH")
-        bat = S.merge_fg(bat, fgb, FG_BAT)
-        dec = S.all_decisions(df)
-        pit = S.pitching_table(df, team, names, order="season", decisions=dec)
-        pit = S.merge_fg(pit, fgp, FG_PIT)
-        bat_tot, pit_tot = S.batting_total(df, team), S.pitching_total(df, team)
-
-    # postseason for this team
-    post_series, post_bat, post_pit = [], None, None
-    try:
-        post, all_series = post_data(year)
-        if post is not None and not post.empty:
-            post_series = S.team_postseason_path(all_series, team)
-            if post_series:
-                pks = [g["game_pk"] for s in post_series for g in s["games"]]
-                pdf = post[post["game_pk"].isin(pks)]
-                post_bat = S.batting_table(pdf, team, names, order="pa")
-                post_pit = S.pitching_table(pdf, team, names, order="season", decisions=S.all_decisions(pdf))
-    except Exception:
-        traceback.print_exc()
-
-    return render_template("team.html", team=team, year=year, name=team_name(team, year),
-                           lg=league(team, year), div=division(team, year), rec=rec,
-                           bat=bat, pit=pit, bat_tot=bat_tot, pit_tot=pit_tot,
-                           fg_ok=not fgb.empty or not fgp.empty,
-                           post_series=post_series, post_bat=post_bat, post_pit=post_pit)
-
-
 @app.route("/game/<int:game_pk>")
 def game(game_pk):
     year = request.args.get("year", type=int)
@@ -301,6 +273,8 @@ def game(game_pk):
                            dec={k: names.get(v, v) for k, v in dec.items() if v},
                            wp=wp, plays=S.top_plays(gdf, names), team_ctx=team)
 
+
+import views  # noqa: E402,F401  (registers the FanGraphs-style pages)
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

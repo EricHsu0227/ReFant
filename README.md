@@ -43,14 +43,18 @@ Change the times in `.github/workflows/build.yml`.
 
 ## Pages
 
+ReFant mixes the three sites: FanGraphs-style navigation, leaderboards and stat tabs; Baseball Savant-style Statcast numbers; Baseball-Reference-style box scores and postseason pages.
+
 | Page | What's on it |
 |---|---|
-| Season | Bracket, every series with results, links to team pages |
-| Postseason series | Result, each team's path, games with WP/LP/SV, series heroes and goats by WPA, team comparison, full batting and pitching for both teams |
-| Team season | Record, run differential, Pythagorean W-L, home/road, 1-run and extra-inning records; postseason stats; batting and pitching (Statcast + FanGraphs); schedule with box scores; by-month splits |
-| Box score | Line score, win-probability chart, top plays, batting and pitching for both sides |
+| Home | Season leaders (WAR, wRC+, HR, xwOBA; pitcher WAR, K%, FIP, Whiff%), standings, latest scores, postseason |
+| Leaders | Every batter and pitcher, with Dashboard / Standard / Advanced / Batted Ball / Plate Discipline / Statcast / Value tabs. Filter by qualified, minimum PA/IP, team, position, or name |
+| Players | Statcast percentile bars, spray chart, pitch mix and arsenal (velocity, spin, movement, whiff%, run value), season-by-season tables in every tab, postseason by series, game logs |
+| Teams | Record, rank in wOBA / xwOBA / RA9 / K%, team batting and pitching in every tab, schedule and results |
+| Standings | Every division with run differential, Pythagorean record, home/road, last 10, streak |
+| Postseason | Bracket, series pages, box scores with win-probability charts |
 
-Tap any column header to sort. On a phone, tables scroll sideways while the name column stays put.
+Stats come from Statcast (computed for every player in one pass) plus FanGraphs WAR, wRC+, ERA, FIP, xFIP, SIERA, R and SB when FanGraphs allows the download. Tap any column header to sort.
 
 ## What's reconstructed (marked *)
 

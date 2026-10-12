@@ -1,8 +1,8 @@
 {% extends "base.html" %}
-{% block title %}Not on the site{% endblock %}
+{% block title %}Not found{% endblock %}
 {% block body %}
-<h1>That page isn't on the site</h1>
-<p>Only the seasons and teams listed in <code>site.json</code> are built. Add a team season there
-(for example <code>"LAD-2019"</code>) or a whole season to <code>full_seasons</code>, and the next update will include it.</p>
+<h1>That page isn't on ReFant</h1>
+<p>Only the seasons listed in <code>site.json</code> are built. Add a season to <code>full_seasons</code> (every team, player and leaderboard) or
+<code>postseasons</code>, and the next update will include it.</p>
 <p><a href="{{ url_for('index') }}">Back to the home page</a></p>
 {% endblock %}

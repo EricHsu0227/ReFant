@@ -1,83 +1,55 @@
 {% extends "base.html" %}
-{% import "_macros.html" as m with context %}
-{% block title %}{{ year }} {{ name }}{% endblock %}
+{% import "_st.html" as t with context %}
+{% block title %}{{ year }} {{ name }} Stats{% endblock %}
 {% block body %}
-<div class="crumbs"><a href="{{ url_for('index') }}">Home</a> › {% if has_post(year) %}<a href="{{ url_for('season', year=year) }}">{{ year }} Season</a>{% else %}{{ year }} Season{% endif %} › {{ name }}</div>
-<h1>{{ year }} {{ name }} Statistics</h1>
+<div class="crumbs"><a href="{{ url_for('index') }}">Home</a> › <a href="{{ url_for('standings', year=year) }}">{{ year }} Standings</a> › {{ name }}</div>
+<div class="box"><div class="bd">
+  <div class="phead"><div class="who">
+    <h1>{{ year }} {{ name }}</h1>
+    <div class="pmeta"><b>{{ rec.W }}–{{ rec.L }}</b>{% if standing %} · {{ standing.place }}{{ {1: 'st', 2: 'nd', 3: 'rd'}.get(standing.place, 'th') }} in {{ standing.div }}{% if standing.gb != '—' %}, {{ standing.gb }} GB{% endif %}{% endif %}
+      {% for s in post_series %}{% if loop.first %} · Postseason: {% endif %}<a href="{{ url_for('series_page', year=year, sid=s.id) }}">{{ s.round }}</a>{% if s.status == 'final' %} ({{ 'W' if s.winner == team else 'L' }}){% endif %}{{ ', ' if not loop.last }}{% endfor %}</div>
+  </div></div>
+  <div class="dash">
+    <div><span>Run Diff</span><b>{{ '%+d'|format(rec.RS - rec.RA) }}</b></div>
+    <div><span>Pythag W-L</span><b>{{ rec.pythW }}–{{ rec.pythL }}</b></div>
+    <div><span>Home / Road</span><b>{{ rec.homeW }}–{{ rec.homeL }} / {{ rec.awayW }}–{{ rec.awayL }}</b></div>
+    {% if tb %}<div><span>wOBA (rank)</span><b>{{ tb.wOBA|fmt('r3') }} <small class="dim">#{{ ranks.bat_wOBA }}</small></b></div>
+    <div><span>xwOBA (rank)</span><b>{{ tb.xwOBA|fmt('r3') }} <small class="dim">#{{ ranks.bat_xwOBA }}</small></b></div>{% endif %}
+    {% if tp %}<div><span>RA9* (rank)</span><b>{{ tp.RA9|fmt('f2') }} <small class="dim">#{{ ranks.pit_RA9 }}</small></b></div>
+    <div><span>Pitch K% (rank)</span><b>{{ tp['K%']|fmt('p1') }} <small class="dim">#{{ ranks['pit_K%'] }}</small></b></div>{% endif %}
+  </div>
+</div></div>
 
-{% if not rec %}
-<p>No regular-season Statcast data found for the {{ year }} {{ name }}.</p>
-{% else %}
-<div class="meta">
-  <div>
-    <p class="big">{{ rec.W }}–{{ rec.L }} <small style="font-size:13px;font-weight:400">({{ rec.pct|r3 }})</small></p>
-    <p>{{ lg }} {{ div }}</p>
-  </div>
-  <div>
-    <p><strong>Runs:</strong> {{ rec.RS }} scored, {{ rec.RA }} allowed ({{ '%+d'|format(rec.RS - rec.RA) }})</p>
-    <p><strong>Pythagorean W-L:</strong> {{ rec.pythW }}–{{ rec.pythL }}</p>
-    <p><strong>R/G:</strong> {{ (rec.RS / rec.G)|f2 }} · <strong>RA/G:</strong> {{ (rec.RA / rec.G)|f2 }}</p>
-  </div>
-  <div>
-    <p><strong>Home:</strong> {{ rec.homeW }}–{{ rec.homeL }} · <strong>Road:</strong> {{ rec.awayW }}–{{ rec.awayL }}</p>
-    <p><strong>1-run:</strong> {{ rec.oneW }}–{{ rec.oneL }} · <strong>Extras:</strong> {{ rec.xW }}–{{ rec.xL }}</p>
-    <p><strong>Team xwOBA:</strong> {{ bat_tot.xwOBA|r3 }} · <strong>allowed:</strong> {{ pit_tot.xwOBA|r3 }}</p>
-  </div>
-  <div>
-    <p><strong>Postseason:</strong>
-    {% if post_series %}
-      {% for s in post_series %}<br><a href="{{ url_for('series_page', year=year, sid=s.id) }}">{{ s.round }}</a>:
-        {% if s.status == 'final' %}{{ 'Won' if s.winner == team else 'Lost' }}{% else %}{{ 'Leads' if s.winner == team and s.w != s.l else 'Trails' if s.w != s.l else 'Tied' }}{% endif %}
-        {{ s.w if s.winner == team else s.l }}–{{ s.l if s.winner == team else s.w }} vs {{ (s.teams|reject('equalto', team)|first) }}{% endfor %}
-    {% else %}Did not qualify / not yet played{% endif %}</p>
-  </div>
-</div>
+<div class="box"><div class="hd"><h2>Batting</h2><small>stats with {{ team }} only · WAR/wRC+ from FanGraphs (full season, single-team players)</small></div>
+  {{ t.roster(bat, tb, BAT_GROUPS, 'bat', year, 'tbat') }}</div>
+<div class="box"><div class="hd"><h2>Pitching</h2><small>stats with {{ team }} only</small></div>
+  {{ t.roster(pit, tp, PIT_GROUPS, 'pit', year, 'tpit') }}</div>
 
-<nav class="tabs">
-  {% if post_series %}<a href="#postseason">Postseason</a>{% endif %}
-  <a href="#batting">Batting</a><a href="#pitching">Pitching</a><a href="#schedule">Schedule</a><a href="#months">By Month</a>
-</nav>
-
-{% if post_series and post_bat is not none %}
-<h2 id="postseason">{{ year }} Postseason Batting</h2>
-{{ m.batting(post_bat|recs, None, mode='series') }}
-<h2>{{ year }} Postseason Pitching</h2>
-{{ m.pitching(post_pit|recs, None, mode='series') }}
+{% if post_bat %}
+<div class="box"><div class="hd"><h2>{{ year }} Postseason</h2></div>
+  <div data-tabs="tpost"><div class="tabbar"><button type="button">Batting</button><button type="button">Pitching</button></div>
+  {% set bc = ['G', 'PA', 'H', '2B', '3B', 'HR', 'RBI', 'BB', 'SO', 'AVG', 'OBP', 'SLG', 'wOBA', 'xwOBA', 'Barrel%', 'HardHit%', 'WPA', 'RE24'] %}
+  {% set pc = ['W', 'L', 'SV', 'G', 'GS', 'IP', 'H', 'RA', 'HR', 'BB', 'SO', 'K%', 'BB%', 'RA9', 'xwOBA', 'Whiff%', 'WPA'] %}
+  <div class="pane"><div class="tw"><table class="st"><thead><tr><th class="l">Name</th>{{ t.th(bc) }}</tr></thead>
+    <tbody>{% for r in post_bat %}<tr><td class="l">{{ t.plink(r.id, r.Name) }}</td>{{ t.tds(r, bc) }}</tr>{% endfor %}</tbody></table></div></div>
+  <div class="pane"><div class="tw"><table class="st"><thead><tr><th class="l">Name</th>{{ t.th(pc) }}</tr></thead>
+    <tbody>{% for r in post_pit %}<tr><td class="l">{{ t.plink(r.id, r.Name) }}</td>{{ t.tds(r, pc) }}</tr>{% endfor %}</tbody></table></div></div>
+  </div></div>
 {% endif %}
 
-<h2 id="batting">Regular-Season Batting <small>Statcast-derived; wRC+ / Off / Def / BsR / WAR from FanGraphs</small></h2>
-{{ m.batting(bat|recs, bat_tot, mode='season', fg=fg_ok) }}
-{% if not fg_ok %}<p class="note">FanGraphs couldn't be reached, so WAR / wRC+ columns are hidden. Reload later to try again.</p>{% endif %}
-<p class="note">† Played for more than one team; FanGraphs value is the full-season total.</p>
+<div class="box"><div class="hd"><h2>Schedule &amp; Results</h2></div>
+  <div class="tw"><table class="st">
+  <thead><tr><th>Gm</th><th class="l">Date</th><th class="l"></th><th class="l">Opp</th><th class="l">W/L</th><th>R</th><th>RA</th><th>Inn</th><th class="l">Record</th><th class="l">Strk</th><th class="l"></th></tr></thead>
+  <tbody>{% for g in rec.log %}<tr><td>{{ loop.index }}</td><td class="l">{{ g.date.strftime('%a %b %-d') }}</td><td class="l">{{ '' if g.is_home else '@' }}</td>
+    <td class="l">{{ t.tlink(g.opp, year) }}</td><td class="l {{ 'w' if g.res == 'W' else 'lo' }}">{{ g.res }}</td><td>{{ g.rs }}</td><td>{{ g.ra }}</td><td>{{ g.innings if g.innings != 9 else '' }}</td>
+    <td class="l">{{ g.w_cum }}-{{ g.l_cum }}</td><td class="l">{{ g.streak }}</td>
+    <td class="l">{% if has_game(g.game_pk) %}<a href="{{ url_for('game', game_pk=g.game_pk, year=year) }}">Box</a>{% endif %}</td></tr>{% endfor %}</tbody>
+  </table></div></div>
 
-<h2 id="pitching">Regular-Season Pitching <small>ERA / FIP / xFIP / SIERA / WAR from FanGraphs</small></h2>
-{{ m.pitching(pit|recs, pit_tot, mode='season', fg=fg_ok) }}
-
-<h2 id="schedule">Schedule &amp; Results</h2>
-<div class="tablewrap"><table class="stats">
-<thead><tr><th>Gm</th><th class="l">Date</th><th class="l"></th><th class="l">Opp</th><th class="l">W/L</th><th>R</th><th>RA</th><th>Inn</th><th class="l">W-L</th><th class="l">Streak</th><th class="l"></th></tr></thead>
-<tbody>
-{% for g in rec.log %}
-<tr>
-  <td>{{ loop.index }}</td><td class="l">{{ g.date|date('%a %b %-d') }}</td>
-  <td class="l">{{ '' if g.is_home else '@' }}</td>
-  <td class="l">{% if has_team(g.opp, year) %}<a href="{{ url_for('team_season', team=g.opp, year=year) }}">{{ g.opp }}</a>{% else %}{{ g.opp }}{% endif %}</td>
-  <td class="l {{ 'w' if g.res == 'W' else 'lo' if g.res == 'L' }}">{{ g.res }}</td>
-  <td>{{ g.rs }}</td><td>{{ g.ra }}</td><td>{{ g.innings if g.innings != 9 else '' }}</td>
-  <td class="l">{{ g.w_cum }}-{{ g.l_cum }}</td><td class="l">{{ g.streak }}</td>
-  <td class="l">{% if has_game(g.game_pk) %}<a href="{{ url_for('game', game_pk=g.game_pk, year=year, team=team) }}">Box</a>{% endif %}</td>
-</tr>
-{% endfor %}
-</tbody></table></div>
-
-<h2 id="months">By Month</h2>
-<div class="tablewrap"><table class="stats" style="width:auto">
-<thead><tr><th class="l">Month</th><th>W</th><th>L</th><th>Pct</th><th>RS</th><th>RA</th><th>Diff</th></tr></thead>
-<tbody>
-{% for mo in rec.months %}
-<tr><td class="l">{{ mo.month }}</td><td>{{ mo.W }}</td><td>{{ mo.L }}</td><td>{{ (mo.W / (mo.W + mo.L) if mo.W + mo.L else 0)|r3 }}</td>
-<td>{{ mo.RS }}</td><td>{{ mo.RA }}</td><td>{{ '%+d'|format(mo.RS - mo.RA) }}</td></tr>
-{% endfor %}
-</tbody></table></div>
+{% if standing %}
+<div class="box"><div class="hd"><h2>{{ standing.div }}</h2></div><div class="tw"><table class="st">
+  <thead><tr><th class="l">Team</th><th>W</th><th>L</th><th>Pct</th><th>GB</th><th>RS</th><th>RA</th><th>Diff</th></tr></thead>
+  <tbody>{% for x in standing.teams %}<tr class="{{ 'win' if x.team == team }}"><td class="l">{{ t.tlink(x.team, year, x.name) }}</td><td>{{ x.W }}</td><td>{{ x.L }}</td><td>{{ x.pct|fmt('r3') }}</td><td>{{ x.GB }}</td><td>{{ x.RS }}</td><td>{{ x.RA }}</td><td>{{ '%+d'|format(x.RS - x.RA) }}</td></tr>{% endfor %}</tbody>
+</table></div></div>
 {% endif %}
 {% endblock %}

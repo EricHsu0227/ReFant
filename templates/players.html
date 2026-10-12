@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Players{% endblock %}
+{% block body %}
+<div class="crumbs"><a href="{{ url_for('index') }}">Home</a> › Players</div>
+<h1>Players <small class="dim" style="font-size:14px;font-weight:400">{{ n }} on this site</small></h1>
+<p>{% for L in letters %}<a class="pill" href="#l-{{ L }}">{{ L }}</a>{% endfor %}</p>
+{% for L, ps in letters.items() %}
+<div class="box" id="l-{{ L }}"><div class="hd"><h2>{{ L }}</h2></div><div class="bd" style="columns: 220px; column-gap: 24px">
+  {% for p in ps %}<div style="break-inside:avoid;padding:2px 0"><a href="{{ url_for('player', pid=p.id) }}">{{ p.n }}</a> <span class="dim" style="font-size:12px">{{ p.t }} {{ p.y }}</span></div>{% endfor %}
+</div></div>
+{% endfor %}
+{% endblock %}

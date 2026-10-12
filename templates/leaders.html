@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ year }} {{ 'Batting' if side == 'bat' else 'Pitching' }} Leaders{% endblock %}
+{% block body %}
+<div class="crumbs"><a href="{{ url_for('index') }}">Home</a> › Leaders › {{ year }}</div>
+<h1>{{ year }} {{ 'Batting' if side == 'bat' else 'Pitching' }} Leaderboard</h1>
+<div class="box" id="lb">
+  <div class="filters">
+    <span class="seg"><a href="{{ url_for('leaders', year=year, side='bat') }}" class="{{ 'on' if side == 'bat' }}">Batting</a><a href="{{ url_for('leaders', year=year, side='pit') }}" class="{{ 'on' if side == 'pit' }}">Pitching</a></span>
+    {% if years_r|length > 1 %}<span class="seg">{% for y in years_r|reverse %}<a href="{{ url_for('leaders', year=y, side=side) }}" class="{{ 'on' if y == year }}">{{ y }}</a>{% endfor %}</span>{% endif %}
+    <label>Show <select name="qual"><option value="q">Qualified ({{ n_q }})</option><option value="all">All players ({{ n }})</option></select></label>
+    <label>Min {{ 'PA' if side == 'bat' else 'IP' }} <input name="min" type="number" min="0" inputmode="numeric" style="width:70px" placeholder="—"></label>
+    <label>Team <select name="team"><option value="">All teams</option>{% for tm in teams %}<option value="{{ tm }}">{{ tm }}</option>{% endfor %}</select></label>
+    {% if side == 'bat' %}
+    <label>Pos <select name="pos"><option value="">All</option>{% for p in positions %}<option>{{ p }}</option>{% endfor %}</select></label>
+    {% else %}
+    <label>Role <select name="pos"><option value="">All</option><option value="SP">Starters</option><option value="RP">Relievers</option></select></label>
+    {% endif %}
+    <input name="name" type="search" placeholder="Filter by name" aria-label="Filter by name">
+    <span class="dim count" style="margin-left:auto;font-size:12px"></span>
+  </div>
+  <div class="tabbar tbar"></div>
+  <div class="tw"><table class="st" data-js-sort><thead></thead><tbody></tbody></table></div>
+  <button class="more" type="button" hidden></button>
+</div>
+<p class="note">Qualified: {{ '3.1 plate appearances' if side == 'bat' else '1 inning pitched' }} per team game ({{ team_games }} games).
+Tap a column to sort. {% if not have_fg %}FanGraphs values (WAR, wRC+, FIP…) weren't available for this season, so wRC+ and FIP shown are computed here without park factors.{% endif %}
+Stats marked * are rebuilt from pitch data.</p>
+<script id="lbdata" type="application/json">{{ data|safe }}</script>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='leaders.js') }}"></script>{% endblock %}

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% import "_st.html" as t with context %}
+{% block title %}Baseball stats, Statcast and postseason{% endblock %}
+{% block body %}
+{% if s %}
+<h1>{{ year }} Season</h1>
+<div class="grid g4">
+  {% for c in cards %}
+  <div class="box leadcard">
+    <div class="hd"><h2>{{ c.title }}</h2><small>{{ 'qualified' if c.key in ('wRC+', 'xwOBA', 'wOBA') else 'batters' }}</small>
+      <a class="r" href="{{ url_for('leaders', year=year, side='bat') }}">Leaders →</a></div>
+    <table>{% for r in c.rows %}<tr><td class="n">{{ loop.index }}</td><td>{{ t.plink(r.id, r.Name) }} <span class="dim">{{ r.Team }}</span></td><td class="v">{{ r.v|fmt(c.fmt) }}</td></tr>{% endfor %}</table>
+  </div>
+  {% endfor %}
+  {% for c in pcards %}
+  <div class="box leadcard">
+    <div class="hd"><h2>{{ c.title }}</h2><small>{{ 'qualified' if c.key in ('K%', 'FIP', 'Whiff%') else 'pitchers' }}</small>
+      <a class="r" href="{{ url_for('leaders', year=year, side='pit') }}">Leaders →</a></div>
+    <table>{% for r in c.rows %}<tr><td class="n">{{ loop.index }}</td><td>{{ t.plink(r.id, r.Name) }} <span class="dim">{{ r.Team }}</span></td><td class="v">{{ r.v|fmt(c.fmt) }}</td></tr>{% endfor %}</table>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="grid g2">
+  <div class="box">
+    <div class="hd"><h2>Standings</h2><a class="r" href="{{ url_for('standings', year=year) }}">Full standings →</a></div>
+    <div class="bd flush"><div class="grid g2" style="gap:0">
+    {% for div in s.standings %}
+      <div class="tw"><table class="st stand">
+        <thead><tr><th class="l">{{ div.div }}</th><th>W</th><th>L</th><th>Pct</th><th>GB</th></tr></thead>
+        <tbody>{% for tm in div.teams %}<tr><td class="l">{{ t.tlink(tm.team, year, tm.team) }}</td><td>{{ tm.W }}</td><td>{{ tm.L }}</td><td>{{ tm.pct|fmt('r3') }}</td><td>{{ tm.GB }}</td></tr>{% endfor %}</tbody>
+      </table></div>
+    {% endfor %}
+    </div></div>
+  </div>
+  <div>
+    {% if post %}
+    <div class="box">
+      <div class="hd"><h2>{{ post.year }} Postseason</h2><a class="r" href="{{ url_for('season', year=post.year) }}">Bracket →</a></div>
+      <div class="bd">
+        {% if post.champ %}<p class="big" style="margin:0 0 8px">🏆 {{ team_name(post.champ.winner, post.year) }} <span class="dim" style="font-weight:400;font-size:14px">won the World Series {{ post.champ.w }}–{{ post.champ.l }}</span></p>{% endif %}
+        {% for x in post.series[:6] %}
+        <a class="card" href="{{ url_for('series_page', year=post.year, sid=x.id) }}">
+          <div class="lbl">{{ x.round }}{% if x.status == 'live' %} <span class="tag live">live</span>{% endif %}</div>
+          <div class="row {{ 'won' if x.status == 'final' }}"><span>{{ team_name(x.winner, post.year) }}</span><span>{{ x.w }}</span></div>
+          <div class="row"><span>{{ team_name(x.loser, post.year) }}</span><span>{{ x.l }}</span></div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    <div class="box">
+      <div class="hd"><h2>Latest games</h2><small>{{ last.strftime('%A, %B %-d') }}</small></div>
+      <div class="bd"><div class="scores">
+      {% for g in recent %}
+        <a class="score" href="{{ url_for('game', game_pk=g.game_pk, year=year) if has_game(g.game_pk) else '#' }}">
+          <div class="ln {{ 'wn' if g.winner == g.away }}"><span>{{ g.away }}</span><span>{{ g.away_r }}</span></div>
+          <div class="ln {{ 'wn' if g.winner == g.home }}"><span>{{ g.home }}</span><span>{{ g.home_r }}</span></div>
+          <div class="ft">Final{{ '/' ~ g.innings if g.innings != 9 else '' }}</div>
+        </a>
+      {% endfor %}
+      </div></div>
+    </div>
+  </div>
+</div>
+{% else %}
+<h1>ReFant</h1>
+<p>Baseball Reference, Baseball Savant and FanGraphs in one place.</p>
+{% if post %}<p><a href="{{ url_for('season', year=post.year) }}">{{ post.year }} Postseason →</a></p>{% endif %}
+{% endif %}
+<div class="box"><div class="hd"><h2>Seasons on this site</h2></div><div class="bd">
+  {% for y in YEARS_R|reverse %}<a class="pill" href="{{ url_for('leaders', year=y, side='bat') }}">{{ y }} leaders</a>{% endfor %}
+  {% for y in YEARS_P|reverse %}<a class="pill" href="{{ url_for('season', year=y) }}">{{ y }} postseason</a>{% endfor %}
+</div></div>
+{% endblock %}

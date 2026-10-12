@@ -1,0 +1,45 @@
+{# FanGraphs-style stat tables built from the column registry (league.COLS) #}
+{% macro th(cols) %}{% for k in cols %}<th title="{{ COLS[k][2] }}">{{ COLS[k][0] }}</th>{% endfor %}{% endmacro %}
+{% macro tds(r, cols) %}{% for k in cols %}{% set v = r.get(k) %}<td data-v="{{ v|dv }}">{{ v|fmt(COLS[k][1]) }}</td>{% endfor %}{% endmacro %}
+
+{% macro plink(id, name) -%}
+{%- if has_player(id) %}<a href="{{ url_for('player', pid=id) }}">{{ name }}</a>{% else %}{{ name }}{% endif -%}
+{%- endmacro %}
+{% macro tlink(t, y, label=None) -%}
+{%- if has_team(t, y) %}<a href="{{ url_for('team_season', team=t, year=y) }}">{{ label or t }}</a>{% else %}{{ label or t }}{% endif -%}
+{%- endmacro %}
+
+{# player career table: one tab per stat group #}
+{% macro career(sec, groups, tabkey) %}
+<div data-tabs="{{ tabkey }}">
+  <div class="tabbar">{% for g in GROUP_ORDER %}<button type="button">{{ g }}</button>{% endfor %}</div>
+  {% for g in GROUP_ORDER %}{% set cols = groups[g] %}
+  <div class="pane"><div class="tw"><table class="st">
+    <thead><tr><th class="l">Season</th><th class="l">Team</th>{{ th(cols) }}</tr></thead>
+    <tbody>
+    {% for r in sec.reg %}<tr><td class="l">{{ r.season }}</td><td class="l">{% for t in r.teams %}{{ tlink(t, r.season) }}{{ ', ' if not loop.last }}{% endfor %}</td>{{ tds(r, cols) }}</tr>{% endfor %}
+    {% if sec.reg_tot %}<tr class="tot"><td class="l">Total</td><td class="l"></td>{{ tds(sec.reg_tot, cols) }}</tr>{% endif %}
+    {% if sec.post %}
+      <tr class="grp"><td colspan="{{ cols|length + 2 }}">Postseason</td></tr>
+      {% for r in sec.post %}<tr class="post"><td class="l"><a href="{{ url_for('season', year=r.season) }}">{{ r.season }}</a></td><td class="l">{{ r.Team }}</td>{{ tds(r, cols) }}</tr>{% endfor %}
+      {% if sec.post_tot %}<tr class="tot"><td class="l">Total</td><td class="l"></td>{{ tds(sec.post_tot, cols) }}</tr>{% endif %}
+    {% endif %}
+    </tbody>
+  </table></div></div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# team roster table #}
+{% macro roster(rows, tot, groups, side, year, tabkey) %}
+<div data-tabs="{{ tabkey }}">
+  <div class="tabbar">{% for g in GROUP_ORDER %}<button type="button">{{ g }}</button>{% endfor %}</div>
+  {% for g in GROUP_ORDER %}{% set cols = groups[g] %}
+  <div class="pane"><div class="tw"><table class="st">
+    <thead><tr><th class="l">Name</th><th class="l">{{ 'Pos' if side == 'bat' else 'Role' }}</th>{{ th(cols) }}</tr></thead>
+    <tbody>{% for r in rows %}<tr><td class="l">{{ plink(r.id, r.Name) }}</td><td class="l dim">{{ r.Pos if side == 'bat' else r.role }}</td>{{ tds(r, cols) }}</tr>{% endfor %}</tbody>
+    {% if tot %}<tfoot><tr><td class="l">Team Total</td><td></td>{{ tds(tot, cols) }}</tr></tfoot>{% endif %}
+  </table></div></div>
+  {% endfor %}
+</div>
+{% endmacro %}

@@ -93,6 +93,7 @@ KEEP_COLS = [
     "estimated_woba_using_speedangle", "estimated_ba_using_speedangle", "estimated_slg_using_speedangle",
     "home_win_exp", "delta_home_win_exp", "delta_run_exp", "pitch_type", "release_speed",
     "fielder_2", "fielder_3", "fielder_4", "fielder_5", "fielder_6", "fielder_7", "fielder_8", "fielder_9",
+    "zone", "pitch_name", "release_spin_rate", "release_extension", "pfx_x", "pfx_z", "hc_x", "hc_y",
 ]
 
 
@@ -271,8 +272,8 @@ _FG_HEADERS = {
     "Referer": "https://www.fangraphs.com/leaders/major-league",
 }
 
-FG_BAT_COLS = ["WAR", "wRC+", "wOBA", "BABIP", "ISO", "Off", "Def", "BsR", "Spd"]
-FG_PIT_COLS = ["WAR", "ERA", "FIP", "xFIP", "SIERA", "ERA-", "FIP-", "LOB%", "GB%"]
+FG_BAT_COLS = ["WAR", "wRC+", "wOBA", "BABIP", "ISO", "Off", "Def", "BsR", "Spd", "R", "SB", "CS", "Age", "PA"]
+FG_PIT_COLS = ["WAR", "ERA", "FIP", "xFIP", "SIERA", "ERA-", "FIP-", "LOB%", "GB%", "ER", "Age", "IP"]
 
 
 def _first(df, names):

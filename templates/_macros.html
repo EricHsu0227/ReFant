@@ -1,5 +1,5 @@
 {% macro player(r) -%}
-<a href="{{ savant(r.id) }}" target="_blank" rel="noopener">{{ r.Name }}</a>
+{% if has_player(r.id) %}<a href="{{ url_for('player', pid=r.id) }}">{{ r.Name }}</a>{% else %}{{ r.Name }}{% endif %}
 {%- endmacro %}
 
 {% macro team_link(abbr, year) -%}

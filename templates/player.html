@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% import "_st.html" as t with context %}
+{% block title %}{{ head.name }} Stats{% endblock %}
+{% block body %}
+<div class="crumbs"><a href="{{ url_for('index') }}">Home</a> › <a href="{{ url_for('players_index') }}">Players</a> › {{ head.name }}</div>
+<div class="box"><div class="bd">
+  <div class="phead">
+    <div class="who">
+      <h1>{{ head.name }}</h1>
+      <div class="pmeta"><b>{{ head.pos }}</b> · {{ head.hand }} · {{ t.tlink(head.team, head.season, team_name(head.team, head.season)) }}{% if head.age == head.age and head.age %} · Age {{ head.age|fmt('i') }}{% endif %}
+        · <a href="https://baseballsavant.mlb.com/savant-player/{{ pid }}" target="_blank" rel="noopener">Savant ↗</a></div>
+    </div>
+  </div>
+  <div class="dash">{% for k, v in dash %}<div><span>{{ k }}</span><b class="{{ 'long' if v and v|string|length > 8 }}">{{ v if v not in (none, '') else '—' }}</b></div>{% endfor %}</div>
+</div></div>
+
+<div class="grid {{ 'g2' if pct and (spray or arsenal) else '' }}">
+{% if pct %}
+  <div class="box">
+    <div class="hd"><h2>{{ pct.year }} Statcast Percentile Rankings</h2><small>{{ 'vs. qualified ' ~ ('pitchers' if is_pitcher else 'hitters') }}{% if not pct.qualified %} · below the qualifying minimum{% endif %}</small></div>
+    <div class="bd">
+      <div class="pctl-key"><span>Poor</span><span>Average</span><span>Great</span></div>
+      <div class="pctl">
+      {% for it in pct['items'] %}
+        <div class="row"><div class="lbl">{{ it.label }}</div>
+          <div class="track">{% if it.p is not none %}<div class="fill" style="width:{{ it.p }}%;background:{{ it.p|pcolor }}"></div>
+            <div class="dot" style="left:{{ it.p }}%;background:{{ it.p|pcolor }}">{{ it.p }}</div>{% endif %}</div>
+          <div class="val">{{ it.v }}</div></div>
+      {% endfor %}
+      </div>
+    </div>
+  </div>
+{% endif %}
+{% if spray %}
+  <div class="box">
+    <div class="hd"><h2>{{ spray.year }}{{ ' Postseason' if spray.kind == 'P' }} Spray Chart</h2><small>{{ spray.pts|length }} batted balls</small></div>
+    <div class="bd">
+      <svg class="spray" viewBox="0 20 250 186" role="img" aria-label="Spray chart">
+        <path class="fair" d="M125.42 198.27 L5.2 78.06 A170 170 0 0 1 245.64 78.06 Z"/>
+        <path class="inf" d="M125.42 198.27 L83 156 A60 60 0 0 1 167.8 156 Z"/>
+        <path d="M125.42 198.27 L150.9 172.8 L125.42 147.3 L99.9 172.8 Z" fill="#eef5e8" stroke="#fff"/>
+        {% for x, y, c in spray.pts %}<circle cx="{{ x }}" cy="{{ y }}" r="2.6" fill="{{ {'out': '#9aa3ab', '1b': '#3a7bd5', '2b': '#f0a202', '3b': '#8e44ad', 'hr': '#d22d49'}[c] }}" fill-opacity=".85"/>{% endfor %}
+      </svg>
+      <div class="legend"><span><i style="background:#3a7bd5"></i>1B</span><span><i style="background:#f0a202"></i>2B</span><span><i style="background:#8e44ad"></i>3B</span><span><i style="background:#d22d49"></i>HR</span><span><i style="background:#9aa3ab"></i>Out</span></div>
+    </div>
+  </div>
+{% endif %}
+{% if arsenal and pct %}
+  <div class="box">
+    <div class="hd"><h2>{{ arsenal[0].year }} Pitch Mix</h2></div>
+    <div class="bd">
+      {% for r in arsenal[0].rows %}
+      <div style="display:grid;grid-template-columns:120px 1fr 60px;align-items:center;gap:8px;font-size:13px;margin:5px 0">
+        <span><b>{{ r.name }}</b></span><span><span class="usage" style="width:{{ (r['Usage%'] * 100)|round(1) }}%"></span></span><span class="dim">{{ r['Usage%']|fmt('p1') }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}
+</div>
+
+{% for side, sec in order %}{% if sec %}
+<div class="box">
+  <div class="hd"><h2>{{ 'Pitching' if side == 'pit' else 'Batting' }}</h2><small>Statcast-based; WAR, wRC+, ERA, FIP, xFIP, SIERA, R and SB from FanGraphs</small></div>
+  {{ t.career(sec, PIT_GROUPS if side == 'pit' else BAT_GROUPS, 'p' ~ side) }}
+</div>
+{% endif %}{% endfor %}
+
+{% for a in arsenal %}
+<div class="box">
+  <div class="hd"><h2>{{ a.year }} Pitch Arsenal</h2><small>Savant-style · run value from the pitcher's side</small></div>
+  <div class="tw"><table class="st">
+    <thead><tr><th class="l">Pitch</th><th>#</th><th>Usage</th><th>Velo</th><th>Spin</th><th title="Horizontal break, inches">HB</th><th title="Induced vertical break, inches">IVB</th>
+      <th>Whiff%</th><th>CSW%</th><th>Chase%</th><th>PA</th><th>BA</th><th>xBA</th><th>wOBA</th><th>xwOBA</th><th>K%</th><th>EV</th><th>HardHit%</th><th>RV</th><th>RV/100</th></tr></thead>
+    <tbody>{% for r in a.rows %}<tr><td class="l"><b>{{ r.name }}</b> <span class="dim">{{ r.pitch_type }}</span></td><td>{{ r.N|fmt('i') }}</td><td data-v="{{ r['Usage%'] }}">{{ r['Usage%']|fmt('p1') }}</td>
+      <td>{{ r.Velo|fmt('f1') }}</td><td>{{ r.Spin|fmt('f0') }}</td><td>{{ r.HB|fmt('f1') }}</td><td>{{ r.IVB|fmt('f1') }}</td>
+      <td>{{ r['Whiff%']|fmt('p1') }}</td><td>{{ r['CSW%']|fmt('p1') }}</td><td>{{ r['Chase%']|fmt('p1') }}</td><td>{{ r.PA|fmt('i') }}</td>
+      <td>{{ r.BA|fmt('r3') }}</td><td>{{ r.xBA|fmt('r3') }}</td><td>{{ r.wOBA|fmt('r3') }}</td><td>{{ r.xwOBA|fmt('r3') }}</td><td>{{ r['K%']|fmt('p1') }}</td>
+      <td>{{ r.EV|fmt('f1') }}</td><td>{{ r['HardHit%']|fmt('p1') }}</td><td class="{{ 'c-hi' if r.RV > 2 else 'c-lo' if r.RV < -2 }}">{{ r.RV|fmt('f1') }}</td><td>{{ r['RV/100']|fmt('f1') }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+</div>
+{% endfor %}
+
+{% if logs %}
+<div class="box">
+  <div class="hd"><h2>Game Log</h2></div>
+  <div data-tabs="">
+    <div class="tabbar">{% for lg in logs %}<button type="button">{{ lg.label }}</button>{% endfor %}</div>
+    {% for lg in logs %}
+    <div class="pane"><div class="tw"><table class="st">
+    {% if is_pitcher %}
+      <thead><tr><th class="l">Date</th><th class="l">Opp</th><th class="l">Result</th><th class="l">Dec*</th><th>GS</th><th>IP</th><th>H</th><th>R*</th><th>BB</th><th>SO</th><th>HR</th><th>TBF</th><th>Pit</th><th>Whiff%</th><th>CSW%</th><th>FBv</th><th>xwOBA</th><th>WPA</th><th class="l"></th></tr></thead>
+      <tbody>{% for r in lg.rows %}<tr><td class="l">{{ r.date.strftime('%b %-d') }}</td><td class="l">{{ r.at }}{{ t.tlink(r.opp, lg.year) }}</td><td class="l {{ 'w' if r.result[0] == 'W' else 'lo' }}">{{ r.result }}</td><td class="l"><b>{{ r.Dec }}</b></td>
+        <td>{{ r.GS }}</td><td data-v="{{ r.Outs }}">{{ r.Outs|fmt('ip') }}</td><td>{{ r.H|fmt('i') }}</td><td>{{ r.RA|fmt('i') }}</td><td>{{ r.BB|fmt('i') }}</td><td>{{ r.SO|fmt('i') }}</td><td>{{ r.HR|fmt('i') }}</td><td>{{ r.TBF|fmt('i') }}</td><td>{{ r.Pit|fmt('i') }}</td>
+        <td>{{ r['Whiff%']|fmt('p1') }}</td><td>{{ r['CSW%']|fmt('p1') }}</td><td>{{ r.FBv|fmt('f1') }}</td><td>{{ r.xwOBA|fmt('r3') }}</td><td>{{ r.WPA|fmt('wpa') }}</td>
+        <td class="l">{% if has_game(r.game_pk) %}<a href="{{ url_for('game', game_pk=r.game_pk, year=lg.year) }}">Box</a>{% endif %}</td></tr>{% endfor %}</tbody>
+    {% else %}
+      <thead><tr><th class="l">Date</th><th class="l">Opp</th><th class="l">Result</th><th class="l">Pos</th><th>PA</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI*</th><th>BB</th><th>SO</th><th>EV</th><th>maxEV</th><th>Barrels</th><th>xwOBA</th><th>WPA</th><th class="l"></th></tr></thead>
+      <tbody>{% for r in lg.rows %}<tr><td class="l">{{ r.date.strftime('%b %-d') }}</td><td class="l">{{ r.at }}{{ t.tlink(r.opp, lg.year) }}</td><td class="l {{ 'w' if r.result[0] == 'W' else 'lo' }}">{{ r.result }}</td><td class="l dim">{{ r.Pos }}</td>
+        <td>{{ r.PA|fmt('i') }}</td><td>{{ r.AB|fmt('i') }}</td><td>{{ r.H|fmt('i') }}</td><td>{{ r['2B']|fmt('i') }}</td><td>{{ r['3B']|fmt('i') }}</td><td>{{ r.HR|fmt('i') }}</td><td>{{ r.RBI|fmt('i') }}</td><td>{{ r.BB|fmt('i') }}</td><td>{{ r.SO|fmt('i') }}</td>
+        <td>{{ r.EV|fmt('f1') }}</td><td>{{ r.maxEV|fmt('f1') }}</td><td>{{ r.Barrels|fmt('i') }}</td><td>{{ r.xwOBA|fmt('r3') }}</td><td>{{ r.WPA|fmt('wpa') }}</td>
+        <td class="l">{% if has_game(r.game_pk) %}<a href="{{ url_for('game', game_pk=r.game_pk, year=lg.year) }}">Box</a>{% endif %}</td></tr>{% endfor %}</tbody>
+    {% endif %}
+    </table></div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+<p class="note">* Rebuilt from pitch data. Percentiles compare against qualified players that season (Savant style). FanGraphs values for players traded mid-season are full-season totals.</p>
+{% endblock %}

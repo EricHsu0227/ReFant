@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% import "_st.html" as t with context %}
+{% block title %}{{ year }} Standings{% endblock %}
+{% block body %}
+<div class="crumbs"><a href="{{ url_for('index') }}">Home</a> › {{ year }} Standings</div>
+<h1>{{ year }} Standings</h1>
+{% if YEARS_R|length > 1 %}<p>{% for y in YEARS_R|reverse %}<a class="pill {{ 'on' if y == year }}" href="{{ url_for('standings', year=y) }}">{{ y }}</a>{% endfor %}</p>{% endif %}
+<div class="grid g2">
+{% for div in st %}
+  <div class="box"><div class="hd"><h2>{{ div.div }}</h2></div><div class="tw"><table class="st">
+    <thead><tr><th class="l">Team</th><th>W</th><th>L</th><th>Pct</th><th>GB</th><th>RS</th><th>RA</th><th>Diff</th><th title="Pythagorean record">xW-L</th><th>Home</th><th>Away</th><th>L10</th><th>Strk</th><th title="Team batting wOBA">wOBA</th><th title="Team batting xwOBA">xwOBA</th><th title="xwOBA allowed by the staff">xwOBA-A</th></tr></thead>
+    <tbody>{% for x in div.teams %}{% set e = extra.get(x.team, {}) %}
+      <tr><td class="l">{{ t.tlink(x.team, year, x.name) }}</td><td>{{ x.W }}</td><td>{{ x.L }}</td><td>{{ x.pct|fmt('r3') }}</td><td>{{ x.GB }}</td><td>{{ x.RS }}</td><td>{{ x.RA }}</td>
+        <td class="{{ 'c-hi' if x.RS - x.RA > 0 else 'c-lo' if x.RS - x.RA < 0 }}">{{ '%+d'|format(x.RS - x.RA) }}</td><td>{{ x.xW }}-{{ x.xL }}</td><td>{{ x.hW }}-{{ x.hL }}</td><td>{{ x.aW }}-{{ x.aL }}</td><td>{{ x.L10 }}</td><td>{{ x.Strk }}</td>
+        <td>{{ e.wOBA|fmt('r3') }}</td><td>{{ e.xwOBA|fmt('r3') }}</td><td>{{ e.pxwOBA|fmt('r3') }}</td></tr>{% endfor %}</tbody>
+  </table></div></div>
+{% endfor %}
+</div>
+{% endblock %}

@@ -8,10 +8,9 @@ What gets built is set in site.json:
   full_seasons       seasons where every team page and every regular-season box score is built
                      ("now" = the current season). The whole league is downloaded one day at a time;
                      finished days are cached, so later runs only fetch the last few days.
-  team_seasons       extra single team seasons, e.g. ["LAD-2024", "NYY-2009"]
   regular_season_box_scores   false to skip the ~2,430 box-score pages per full season
 
-Every season that has team pages also gets its postseason page.
+Every full season also gets its postseason pages, leaderboards, standings and a page for every player.
 """
 from __future__ import annotations
 
@@ -34,26 +33,7 @@ def log(*a):
     print(time.strftime("%H:%M:%S"), *a, flush=True)
 
 
-def current_season():
-    t = dt.date.today()
-    return t.year if (t.month, t.day) >= (3, 15) else t.year - 1
-
-
-def years(spec):
-    """'2015-now', 2019, 'now', or a list of those -> sorted list of years."""
-    if spec is None:
-        return []
-    if not isinstance(spec, list):
-        spec = [spec]
-    out = set()
-    for item in spec:
-        item = str(item).strip().lower().replace("now", str(current_season()))
-        if "-" in item:
-            a, b = item.split("-", 1)
-            out.update(range(int(a), int(b) + 1))
-        elif item:
-            out.add(int(item))
-    return sorted(y for y in out if 2008 <= y <= dt.date.today().year)
+from siteconf import current_season, years  # noqa: E402
 
 
 _BASE = "/"
@@ -88,7 +68,8 @@ def _render_one(task):
         return False, f"{path} -> HTTP {r.status_code}"
     target = OUT / dest
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(_tidy(r.get_data(as_text=True)), encoding="utf-8")
+    body = r.get_data(as_text=True)
+    target.write_text(body if dest.endswith(".json") else _tidy(body), encoding="utf-8")
     return True, ""
 
 
@@ -101,48 +82,40 @@ def main():
         base = "/" + base
 
     import data
-    import stats as S
-    from teams import TEAMS, canon
+    import league as LG
+    from teams import TEAMS
     import app as A
 
     full_years = years(cfg.get("full_seasons", ["now"]))
-    team_list = []
-    for item in cfg.get("team_seasons", []):
-        t, y = str(item).upper().rsplit("-", 1)
-        team_list.append((canon(t), int(str(y).lower().replace("NOW", str(current_season())))))
-    post_years = sorted(set(years(cfg.get("postseasons", ["2015-now"]))) | set(full_years) | {y for _, y in team_list})
+    post_years = sorted(set(years(cfg.get("postseasons", ["2015-now"]))) | set(full_years))
     box_reg = cfg.get("regular_season_box_scores", True)
 
-    built = {"post": set(), "teams": set(), "games": set(), "updated": ""}
+    built = {"post": set(), "teams": set(), "games": set(), "players": set(), "full": set(), "updated": ""}
     problems = []
 
-    # ---------------- download / load data
+    # ---------------- download / load data, compute every season's stats
     for y in full_years:
         log(f"Regular season {y}: loading every day (cached days are instant)…")
         df = data.get_regular_season(y)
         if df.empty:
             problems.append(f"no regular-season data for {y}")
             continue
+        log(f"  {df['game_pk'].nunique()} games, {len(df):,} pitches — computing stats…")
+        s = LG.season(y, "R")
+        if not s:
+            problems.append(f"could not compute {y}")
+            continue
+        built["full"].add(y)
         teams_here = set(df["home_team"]) | set(df["away_team"])
         built["teams"].update(f"{t}-{y}" for t in teams_here if t in TEAMS)
+        built["players"].update(int(p) for p in s["bat"].index)
+        built["players"].update(int(p) for p in s["pit"].index)
         if box_reg:
             built["games"].update(int(p) for p in df["game_pk"].unique())
-        log(f"  {df['game_pk'].nunique()} games, {len(df):,} pitches")
-    for t, y in team_list:
-        if f"{t}-{y}" in built["teams"]:
-            continue
-        log(f"Team season {t} {y}…")
-        try:
-            df = data.get_team_season(t, y)
-        except Exception as e:  # noqa: BLE001
-            problems.append(f"{t} {y}: {e}")
-            continue
-        if df.empty:
-            problems.append(f"no data for {t} {y}")
-            continue
-        built["teams"].add(f"{t}-{y}")
-        if box_reg:
-            built["games"].update(int(p) for p in df["game_pk"].unique())
+        fgok = s["bat"]["WAR"].notna().any()
+        log(f"  {len(s['bat'])} batters, {len(s['pit'])} pitchers, FanGraphs values: {'yes' if fgok else 'NO'}")
+        if not fgok:
+            problems.append(f"FanGraphs values missing for {y} (WAR/wRC+/FIP columns will be blank or computed)")
     for y in post_years:
         log(f"Postseason {y}…")
         try:
@@ -153,7 +126,12 @@ def main():
         built["post"].add(y)
         if not post.empty:
             built["games"].update(int(p) for p in post["game_pk"].unique())
+            sp = LG.season(y, "P")
+            if sp:
+                built["players"].update(int(p) for p in sp["bat"].index)
+                built["players"].update(int(p) for p in sp["pit"].index)
     built["updated"] = dt.datetime.now(dt.timezone.utc).strftime("%b %-d, %Y %H:%M UTC")
+    A.app.config.update(YEARS_R=sorted(built["full"]), YEARS_P=sorted(built["post"]))
 
     # ---------------- render
     A.app.config.update(STATIC=True, BUILT=built, TESTING=False, PROPAGATE_EXCEPTIONS=False)
@@ -162,8 +140,11 @@ def main():
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True)
 
-    tasks = [("/", "index.html")]
+    tasks = [("/", "index.html"), ("/players/", "players/index.html"), ("/players.json", "players.json")]
     seen_games = set()
+    for y in sorted(built["full"]):
+        tasks += [(f"/leaders/{y}/bat", f"leaders/{y}/bat/index.html"), (f"/leaders/{y}/pit", f"leaders/{y}/pit/index.html"),
+                  (f"/standings/{y}", f"standings/{y}/index.html")]
     for y in sorted(built["post"]):
         tasks.append((f"/season/{y}", f"season/{y}/index.html"))
         post, series = A.post_data(y)
@@ -177,19 +158,12 @@ def main():
     for key in sorted(built["teams"]):
         t, y = key.split("-")
         tasks.append((f"/team/{t}/{y}", f"team/{t}/{y}/index.html"))
+    for pid in sorted(built["players"]):
+        tasks.append((f"/player/{pid}", f"player/{pid}/index.html"))
     if box_reg:
-        for y in sorted({int(k.split("-")[1]) for k in built["teams"]}):
+        for y in sorted(built["full"]):
             lg = data._mem.get(f"reg_{y}")
-            if lg is not None and not lg.empty:
-                pks = {int(p) for p in lg["game_pk"].unique()}
-            else:
-                pks = set()
-                for t, ty in team_list:
-                    if ty == y:
-                        try:
-                            pks |= {int(p) for p in data.get_team_season(t, y)["game_pk"].unique()}
-                        except Exception:
-                            pass
+            pks = {int(p) for p in lg["game_pk"].unique()} if lg is not None and not lg.empty else set()
             for pk in sorted(pks - seen_games):
                 seen_games.add(pk)
                 tasks.append((f"/game/{pk}?year={y}", f"game/{pk}/index.html"))
