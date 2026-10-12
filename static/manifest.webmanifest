@@ -1,0 +1,15 @@
+{
+  "name": "SavantRef",
+  "short_name": "SavantRef",
+  "description": "Postseason series and team seasons from Baseball Savant and FanGraphs data.",
+  "start_url": "../",
+  "scope": "../",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2b2b2b",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml"}
+  ]
+}

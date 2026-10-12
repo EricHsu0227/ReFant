@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ year }} {{ s.round }}: {{ team_name(s.winner, year) }} vs {{ team_name(s.loser, year) }}{% endblock %}
+{% block body %}
+<div class="crumbs"><a href="{{ url_for('index') }}">Home</a> › <a href="{{ url_for('season', year=year) }}">{{ year }} Postseason</a> › {{ s.round }}</div>
+<h1>{{ year }} {{ s.round }}</h1>
+
+<div class="meta">
+  <div>
+    {% if s.status == 'final' %}
+    <p class="big">{{ m.team_link(s.winner, year) }} def. {{ m.team_link(s.loser, year) }}, {{ s.w }}–{{ s.l }}</p>
+    {% else %}
+    <p class="big">{{ m.team_link(s.winner, year) }} vs {{ m.team_link(s.loser, year) }}
+      <span class="tag live">{{ 'Tied' if s.w == s.l else 'leads' }} {{ s.w }}–{{ s.l }}</span></p>
+    {% endif %}
+    <p><strong>Dates:</strong> {{ s.start|date('%B %-d') }} – {{ s.end|date('%B %-d, %Y') }} · Best of {{ s.best_of }}</p>
+    {% if s.game_type == 'W' and s.status == 'final' %}<p><span class="tag champ">{{ year }} World Series Champions</span></p>{% endif %}
+  </div>
+  {% for t in teams %}
+  <div>
+    <p><strong>{{ t.name }}</strong></p>
+    <p>{{ teams[1 - loop.index0].pit_tot.R }} runs · {{ t.bat_tot.AVG|r3 }}/{{ t.bat_tot.OBP|r3 }}/{{ t.bat_tot.SLG|r3 }} · {{ t.bat_tot.HR }} HR</p>
+    <p>xwOBA {{ t.bat_tot.xwOBA|r3 }} · Barrel {{ t.bat_tot.Barrel|pct }} · Staff RA9 {{ t.pit_tot.RA9|f2 }}</p>
+    <p>Path:
+      {% for p in path[t.abbr] %}<a href="{{ url_for('series_page', year=year, sid=p.id) }}">{{ p.round }}</a>{% if p.id != s.id %} ({{ 'W' if p.winner == t.abbr and p.status == 'final' else 'L' if p.status == 'final' else '…' }} {{ p.w if p.winner == t.abbr else p.l }}–{{ p.l if p.winner == t.abbr else p.w }}){% endif %}{{ ' → ' if not loop.last }}{% endfor %}
+    </p>
+  </div>
+  {% endfor %}
+</div>
+
+<h2>Games</h2>
+<div class="tablewrap"><table class="stats">
+<thead><tr><th>Gm</th><th class="l">Date</th><th class="l">Matchup</th><th>Score</th><th class="l">Winner</th><th>Inn</th>
+<th class="l">WP*</th><th class="l">LP*</th><th class="l">SV*</th><th class="l"></th></tr></thead>
+<tbody>
+{% for g in games %}
+<tr>
+  <td>{{ g.num }}</td><td class="l">{{ g.date|date('%a %b %-d') }}</td>
+  <td class="l">{{ g.away }} @ {{ g.home }}</td>
+  <td>{{ g.away_r }}–{{ g.home_r }}</td>
+  <td class="l"><b>{{ g.winner }}</b></td><td>{{ g.innings if g.innings != 9 else '' }}</td>
+  <td class="l">{{ g.W }}</td><td class="l">{{ g.L }}</td><td class="l">{{ g.SV }}</td>
+  <td class="l">{% if has_game(g.game_pk) %}<a href="{{ url_for('game', game_pk=g.game_pk, year=year) }}">Box Score</a>{% endif %}</td>
+</tr>
+{% endfor %}
+</tbody></table></div>
+
+<div class="grid2">
+  <div>
+    <h2>Series Heroes <small>by WPA</small></h2>
+    <div class="tablewrap"><table class="stats">
+      <thead><tr><th class="l">Player</th><th class="l">Tm</th><th>WPA</th><th>RE24</th></tr></thead>
+      <tbody>{% for r in leaders %}<tr><td class="l">{{ m.player(r) }}</td><td class="l">{{ r.team }}</td><td>{{ r.WPA|wpa }}</td><td>{{ r.RE24|f1 }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+  <div>
+    <h2>Series Goats <small>by WPA</small></h2>
+    <div class="tablewrap"><table class="stats">
+      <thead><tr><th class="l">Player</th><th class="l">Tm</th><th>WPA</th><th>RE24</th></tr></thead>
+      <tbody>{% for r in goats %}<tr><td class="l">{{ m.player(r) }}</td><td class="l">{{ r.team }}</td><td>{{ r.WPA|wpa }}</td><td>{{ r.RE24|f1 }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+  </div>
+</div>
+
+<h2>Team Comparison</h2>
+<div class="tablewrap"><table class="stats">
+<thead><tr><th class="l">Team</th><th>R</th><th>H</th><th>HR</th><th>BB</th><th>SO</th><th>BA</th><th>OBP</th><th>SLG</th><th>OPS</th>
+<th class="sep">wOBA</th><th>xwOBA</th><th>EV</th><th>HardHit%</th><th>Barrel%</th><th class="sep">Pitch RA9*</th><th>Whiff%</th><th>xwOBA allowed</th></tr></thead>
+<tbody>
+{% for t in teams %}
+<tr><td class="l">{{ t.name }}</td><td>{{ teams[1 - loop.index0].pit_tot.R }}</td><td>{{ t.bat_tot.H }}</td><td>{{ t.bat_tot.HR }}</td><td>{{ t.bat_tot.BB }}</td><td>{{ t.bat_tot.SO }}</td>
+<td>{{ t.bat_tot.AVG|r3 }}</td><td>{{ t.bat_tot.OBP|r3 }}</td><td>{{ t.bat_tot.SLG|r3 }}</td><td>{{ t.bat_tot.OPS|r3 }}</td>
+<td class="sep">{{ t.bat_tot.wOBA|r3 }}</td><td>{{ t.bat_tot.xwOBA|r3 }}</td><td>{{ t.bat_tot.EV|f1 }}</td><td>{{ t.bat_tot.HardHit|pct }}</td><td>{{ t.bat_tot.Barrel|pct }}</td>
+<td class="sep">{{ t.pit_tot.RA9|f2 }}</td><td>{{ t.pit_tot.Whiff|pct }}</td><td>{{ t.pit_tot.xwOBA|r3 }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+
+{% for t in teams %}
+<h2>{{ t.name }} Batting <small>series totals</small></h2>
+{{ m.batting(t.bat|recs, t.bat_tot, mode='series') }}
+<h2>{{ t.name }} Pitching <small>series totals</small></h2>
+{{ m.pitching(t.pit|recs, t.pit_tot, mode='series') }}
+{% endfor %}
+<p class="note">* R charged to the pitcher on the mound when the run scored; W/L/SV and RBI reconstructed from pitch data.</p>
+{% endblock %}

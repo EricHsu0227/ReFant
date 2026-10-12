@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block body %}
+<h1>SavantRef</h1>
+<p class="lede">Baseball-Reference-style pages built from Baseball Savant pitch-by-pitch data and FanGraphs value stats.
+Pick a postseason to see its bracket and every series, or open a team's season.</p>
+
+{% if STATIC %}
+<h2>Postseasons</h2>
+<div class="years">
+{% for y in BUILT.post|sort(reverse=True) %}<a href="{{ url_for('season', year=y) }}">{{ y }}</a>{% endfor %}
+</div>
+
+<h2>Team Seasons</h2>
+{% set team_years = {} %}
+{% for k in BUILT.teams %}{% set t, y = k.split('-') %}{% set _ = team_years.setdefault(y|int, []).append(t) %}{% endfor %}
+{% if not team_years %}<p class="note">No team seasons on the site yet. Add some in <code>site.json</code>.</p>{% endif %}
+{% for y in team_years|sort(reverse=True) %}
+<h3>{{ y }}</h3>
+<div class="teamgrid">
+  {% for t in team_years[y]|sort %}<a href="{{ url_for('team_season', team=t, year=y) }}"><b>{{ t }}</b><span>{{ team_name(t, y) }}</span></a>{% endfor %}
+</div>
+{% endfor %}
+<p class="note">Tap ☰ (top right) to jump to any team or season. On a phone, use “Add to Home Screen” to install SavantRef as an app.</p>
+{% else %}
+<h2>Postseasons <small>shaded = already downloaded</small></h2>
+<div class="years">
+{% for y in years %}<a href="{{ url_for('season', year=y) }}" class="{{ 'cached' if y in cached }}">{{ y }}</a>{% endfor %}
+</div>
+<p class="note">First visit to a season downloads its postseason Statcast data (about a minute); after that it loads from the local cache.
+Exit velocity, launch angle and expected stats exist from 2015 on; 2008–2014 pages show traditional and win-probability stats only.</p>
+
+<h2>Team Seasons</h2>
+<form class="picker" action="{{ url_for('go') }}">
+  <select name="team">
+    {% for abbr, t in TEAMS|dictsort(by='value') %}<option value="{{ abbr }}">{{ t[0] }}</option>{% endfor %}
+  </select>
+  <select name="year">{% for y in years %}<option>{{ y }}</option>{% endfor %}</select>
+  <button>View team season</button>
+</form>
+<p class="note">A team season downloads every regular-season pitch for that team (1–3 minutes the first time).</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% import "_macros.html" as m with context %}
+{% block title %}{{ team_name(g.away, year) }} vs {{ team_name(g.home, year) }} Box Score, {{ g.date|date('%B %-d, %Y') }}{% endblock %}
+{% block body %}
+<div class="crumbs"><a href="{{ url_for('index') }}">Home</a> ›
+  {% if series %}<a href="{{ url_for('season', year=year) }}">{{ year }} Postseason</a> ›
+  <a href="{{ url_for('series_page', year=year, sid=series.id) }}">{{ series.round }}</a> ›
+  {% elif team_ctx and has_team(team_ctx, year) %}<a href="{{ url_for('team_season', team=team_ctx, year=year) }}">{{ year }} {{ team_name(team_ctx, year) }}</a> ›{% endif %}
+  Box Score</div>
+<h1>{{ team_name(g.away, year) }} {{ g.away_r }}, {{ team_name(g.home, year) }} {{ g.home_r }}</h1>
+<p>{{ g.date|date('%A, %B %-d, %Y') }}
+  {% if series %}· {{ series.round }} Game {{ (series.games|map(attribute='game_pk')|list).index(g.game_pk) + 1 }}{% endif %}</p>
+
+<div class="linescore-wrap"><table class="linescore">
+  <tr><th></th>{% for i in range(1, ls.n_inn + 1) %}<th>{{ i }}</th>{% endfor %}<th>R</th><th>H</th><th>E</th></tr>
+  {% for side in ['away', 'home'] %}{% set r = ls[side] %}
+  <tr class="{{ 'winner' if r.team == g.winner }}">
+    <td class="team">{{ m.team_link(r.team, year) }}</td>
+    {% for c in r.innings %}<td>{{ c }}</td>{% endfor %}
+    <td class="rhe">{{ r.R }}</td><td class="rhe">{{ r.H }}</td><td class="rhe">{{ r.E }}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+<p>{% if dec.W %}<b>WP*:</b> {{ dec.W }} &nbsp; {% endif %}{% if dec.L %}<b>LP*:</b> {{ dec.L }} &nbsp; {% endif %}{% if dec.SV %}<b>SV*:</b> {{ dec.SV }}{% endif %}</p>
+
+{% if wp|length > 2 %}
+<h2>Win Probability <small>{{ g.home }} win expectancy after each plate appearance</small></h2>
+{% set W = 600 %}{% set H = 260 %}{% set n = wp|length - 1 %}
+<svg class="wpchart" viewBox="0 0 {{ W }} {{ H }}" role="img" aria-label="Win probability chart">
+  <line x1="0" y1="{{ H/2 }}" x2="{{ W }}" y2="{{ H/2 }}" stroke="#ccc" stroke-dasharray="4 4"/>
+  {% set ns = namespace(last='') %}
+  {% for p in wp %}{% if p.inn and p.inn != ns.last %}
+    <line x1="{{ p.x / n * W }}" y1="0" x2="{{ p.x / n * W }}" y2="{{ H }}" stroke="#eee"/>
+    <text x="{{ p.x / n * W + 2 }}" y="{{ H - 4 }}">{{ p.inn }}</text>
+    {% set ns.last = p.inn %}{% endif %}{% endfor %}
+  <polyline fill="none" stroke="#b31b1b" stroke-width="2" vector-effect="non-scaling-stroke"
+    points="{% for p in wp %}{{ p.x / n * W }},{{ (1 - p.y) * H }} {% endfor %}"/>
+  <text x="4" y="14">{{ g.home }} 100%</text><text x="4" y="{{ H/2 - 4 }}">50%</text><text x="4" y="{{ H - 16 }}">{{ g.away }} 100%</text>
+</svg>
+{% endif %}
+
+{% if plays %}
+<h2>Top Plays <small>by win probability added</small></h2>
+<div class="tablewrap"><table class="stats">
+<thead><tr><th class="l">Inn</th><th class="l">Score</th><th class="l">Batter</th><th class="l">Play</th><th>WPA</th></tr></thead>
+<tbody>{% for p in plays %}
+<tr><td class="l">{{ p.inning }}</td><td class="l">{{ p.score }}</td><td class="l">{{ p.batter }} ({{ p.team }})</td>
+<td class="l" style="white-space:normal">{{ p.des }}</td><td>{{ p.wpa|wpa }}</td></tr>
+{% endfor %}</tbody></table></div>
+{% endif %}
+
+{% for sd in sides %}
+<h2>{{ sd.name }} Batting</h2>
+{{ m.batting(sd.bat|recs, sd.bat_tot, mode='game') }}
+{% endfor %}
+{% for sd in sides %}
+<h2>{{ sd.name }} Pitching</h2>
+{{ m.pitching(sd.pit|recs, sd.pit_tot, mode='game') }}
+{% endfor %}
+<p class="note">Batting order: first nine batters to appear, substitutes indented. Positions come from Statcast's on-field alignment.
+* reconstructed from pitch data.</p>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% macro player(r) -%}
+<a href="{{ savant(r.id) }}" target="_blank" rel="noopener">{{ r.Name }}</a>
+{%- endmacro %}
+
+{% macro team_link(abbr, year) -%}
+{% if has_team(abbr, year) %}<a href="{{ url_for('team_season', team=abbr, year=year) }}">{{ team_name(abbr, year) }}</a>{% else %}{{ team_name(abbr, year) }}{% endif %}
+{%- endmacro %}
+
+{# ---------- batting ---------- #}
+{% macro batting(rows, tot, mode='season', fg=False) %}
+<div class="tablewrap"><table class="stats">
+<thead><tr>
+  <th class="l">Name</th>{% if mode != 'series' %}<th class="l">Pos</th>{% endif %}
+  {% if mode != 'game' %}<th>G</th>{% endif %}
+  <th>PA</th><th>AB</th><th>H</th><th>2B</th><th>3B</th><th>HR</th><th>RBI*</th><th>BB</th><th>SO</th><th>HBP</th>
+  <th>BA</th><th>OBP</th><th>SLG</th><th>OPS</th>
+  <th class="sep">wOBA</th><th>xwOBA</th><th>xBA</th>{% if mode == 'season' %}<th>xSLG</th>{% endif %}
+  <th>EV</th><th>Max EV</th><th>HardHit%</th><th>Barrel%</th>
+  {% if mode != 'game' %}<th>K%</th><th>BB%</th>{% endif %}
+  <th class="sep">WPA</th><th>RE24</th>
+  {% if fg %}<th class="sep">wRC+</th><th>Off</th><th>Def</th><th>BsR</th><th>WAR</th>{% endif %}
+</tr></thead>
+<tbody>
+{% for r in rows %}
+<tr{% if r.sub %} class="sub"{% endif %}>
+  <td class="l">{{ player(r) }}</td>{% if mode != 'series' %}<td class="l pos">{{ r.Pos }}</td>{% endif %}
+  {% if mode != 'game' %}<td>{{ r.G }}</td>{% endif %}
+  <td>{{ r.PA }}</td><td>{{ r.AB }}</td><td>{{ r.H }}</td><td>{{ r['2B'] }}</td><td>{{ r['3B'] }}</td><td>{{ r.HR }}</td>
+  <td>{{ r.RBI }}</td><td>{{ r.BB }}</td><td>{{ r.SO }}</td><td>{{ r.HBP }}</td>
+  <td>{{ r.AVG|r3 }}</td><td>{{ r.OBP|r3 }}</td><td>{{ r.SLG|r3 }}</td><td>{{ r.OPS|r3 }}</td>
+  <td class="sep">{{ r.wOBA|r3 }}</td><td>{{ r.xwOBA|r3 }}</td><td>{{ r.xBA|r3 }}</td>{% if mode == 'season' %}<td>{{ r.xSLG|r3 }}</td>{% endif %}
+  <td>{{ r.EV|f1 }}</td><td>{{ r.maxEV|f1 }}</td><td>{{ r.HardHit|pct }}</td><td>{{ r.Barrel|pct }}</td>
+  {% if mode != 'game' %}<td>{{ r.Kpct|pct }}</td><td>{{ r.BBpct|pct }}</td>{% endif %}
+  <td class="sep">{{ r.WPA|wpa }}</td><td>{{ r.RE24|f1 }}</td>
+  {% if fg %}<td class="sep">{{ r['fg_wRC+']|f0 }}</td><td>{{ r.fg_Off|f1 }}</td><td>{{ r.fg_Def|f1 }}</td><td>{{ r.fg_BsR|f1 }}</td><td>{{ r.fg_WAR|f1 }}{% if r.fg_multi %}<sup title="Full-season total across teams">†</sup>{% endif %}</td>{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+{% if tot %}
+<tfoot><tr>
+  <td class="l">Team Totals</td>{% if mode != 'series' %}<td></td>{% endif %}
+  {% if mode != 'game' %}<td>{{ tot.G }}</td>{% endif %}
+  <td>{{ tot.PA }}</td><td>{{ tot.AB }}</td><td>{{ tot.H }}</td><td>{{ tot['2B'] }}</td><td>{{ tot['3B'] }}</td><td>{{ tot.HR }}</td>
+  <td>{{ tot.RBI }}</td><td>{{ tot.BB }}</td><td>{{ tot.SO }}</td><td>{{ tot.HBP }}</td>
+  <td>{{ tot.AVG|r3 }}</td><td>{{ tot.OBP|r3 }}</td><td>{{ tot.SLG|r3 }}</td><td>{{ tot.OPS|r3 }}</td>
+  <td class="sep">{{ tot.wOBA|r3 }}</td><td>{{ tot.xwOBA|r3 }}</td><td>{{ tot.xBA|r3 }}</td>{% if mode == 'season' %}<td>{{ tot.xSLG|r3 }}</td>{% endif %}
+  <td>{{ tot.EV|f1 }}</td><td>{{ tot.maxEV|f1 }}</td><td>{{ tot.HardHit|pct }}</td><td>{{ tot.Barrel|pct }}</td>
+  {% if mode != 'game' %}<td>{{ tot.Kpct|pct }}</td><td>{{ tot.BBpct|pct }}</td>{% endif %}
+  <td class="sep">{{ tot.WPA|wpa }}</td><td>{{ tot.RE24|f1 }}</td>
+  {% if fg %}<td class="sep" colspan="4"></td><td>{{ rows|sumna('fg_WAR')|f1 }}</td>{% endif %}
+</tr></tfoot>
+{% endif %}
+</table></div>
+{% endmacro %}
+
+{# ---------- pitching ---------- #}
+{% macro pitching(rows, tot, mode='season', fg=False) %}
+<div class="tablewrap"><table class="stats">
+<thead><tr>
+  <th class="l">Name</th>
+  {% if mode != 'game' %}<th>W*</th><th>L*</th><th>SV*</th><th>G</th><th>GS</th>{% else %}<th class="l">Dec*</th>{% endif %}
+  <th>IP</th><th>H</th><th>R*</th><th>BB</th><th>SO</th><th>HR</th><th>HBP</th><th>BF</th><th>Pit</th>
+  {% if mode != 'game' %}<th>RA9*</th><th>WHIP</th><th>K%</th><th>BB%</th>{% else %}<th>Str</th>{% endif %}
+  <th class="sep">wOBA</th><th>xwOBA</th><th>EV</th><th>HardHit%</th><th>Barrel%</th><th>Whiff%</th><th>FB Velo</th>
+  <th class="sep">WPA</th><th>RE24</th>
+  {% if fg %}<th class="sep">ERA</th><th>FIP</th><th>xFIP</th><th>SIERA</th><th>WAR</th>{% endif %}
+</tr></thead>
+<tbody>
+{% for r in rows %}
+<tr>
+  <td class="l">{{ player(r) }}</td>
+  {% if mode != 'game' %}<td>{{ r.W }}</td><td>{{ r.L }}</td><td>{{ r.SV }}</td><td>{{ r.G }}</td><td>{{ r.GS }}</td>
+  {% else %}<td class="l">{% if r.W %}<b>W</b>{% elif r.L %}<b>L</b>{% elif r.SV %}<b>SV</b>{% endif %}</td>{% endif %}
+  <td data-v="{{ r.Outs }}">{{ r.Outs|ip }}</td><td>{{ r.H }}</td><td>{{ r.R }}</td><td>{{ r.BB }}</td><td>{{ r.SO }}</td><td>{{ r.HR }}</td><td>{{ r.HBP }}</td><td>{{ r.BF }}</td><td>{{ r.Pit }}</td>
+  {% if mode != 'game' %}<td>{{ r.RA9|f2 }}</td><td>{{ r.WHIP|f2 }}</td><td>{{ r.Kpct|pct }}</td><td>{{ r.BBpct|pct }}</td>{% else %}<td>{{ r.Str }}</td>{% endif %}
+  <td class="sep">{{ r.wOBA|r3 }}</td><td>{{ r.xwOBA|r3 }}</td><td>{{ r.EV|f1 }}</td><td>{{ r.HardHit|pct }}</td><td>{{ r.Barrel|pct }}</td><td>{{ r.Whiff|pct }}</td><td>{{ r.Velo|f1 }}</td>
+  <td class="sep">{{ r.WPA|wpa }}</td><td>{{ r.RE24|f1 }}</td>
+  {% if fg %}<td class="sep">{{ r.fg_ERA|f2 }}</td><td>{{ r.fg_FIP|f2 }}</td><td>{{ r.fg_xFIP|f2 }}</td><td>{{ r.fg_SIERA|f2 }}</td><td>{{ r.fg_WAR|f1 }}{% if r.fg_multi %}<sup title="Full-season total across teams">†</sup>{% endif %}</td>{% endif %}
+</tr>
+{% endfor %}
+</tbody>
+{% if tot %}
+<tfoot><tr>
+  <td class="l">Team Totals</td>
+  {% if mode != 'game' %}<td>{{ rows|sumna('W')|i }}</td><td>{{ rows|sumna('L')|i }}</td><td>{{ rows|sumna('SV')|i }}</td><td>{{ tot.G }}</td><td>{{ tot.G }}</td>{% else %}<td></td>{% endif %}
+  <td>{{ tot.Outs|ip }}</td><td>{{ tot.H }}</td><td>{{ tot.R }}</td><td>{{ tot.BB }}</td><td>{{ tot.SO }}</td><td>{{ tot.HR }}</td><td>{{ tot.HBP }}</td><td>{{ tot.BF }}</td><td>{{ tot.Pit }}</td>
+  {% if mode != 'game' %}<td>{{ tot.RA9|f2 }}</td><td>{{ tot.WHIP|f2 }}</td><td>{{ tot.Kpct|pct }}</td><td>{{ tot.BBpct|pct }}</td>{% else %}<td>{{ tot.Str }}</td>{% endif %}
+  <td class="sep">{{ tot.wOBA|r3 }}</td><td>{{ tot.xwOBA|r3 }}</td><td>{{ tot.EV|f1 }}</td><td>{{ tot.HardHit|pct }}</td><td>{{ tot.Barrel|pct }}</td><td>{{ tot.Whiff|pct }}</td><td>{{ tot.Velo|f1 }}</td>
+  <td class="sep">{{ tot.WPA|wpa }}</td><td>{{ tot.RE24|f1 }}</td>
+  {% if fg %}<td class="sep" colspan="4"></td><td>{{ rows|sumna('fg_WAR')|f1 }}</td>{% endif %}
+</tr></tfoot>
+{% endif %}
+</table></div>
+{% endmacro %}

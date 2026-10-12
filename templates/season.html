@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ year }} Postseason{% endblock %}
+{% block body %}
+<div class="crumbs"><a href="{{ url_for('index') }}">Home</a> › {{ year }} Season</div>
+<h1>{{ year }} MLB Postseason</h1>
+
+{% if champ %}
+<div class="meta"><p class="big">🏆 {{ team_name(champ.winner, year) }}</p>
+<p>defeated the {{ team_name(champ.loser, year) }} {{ champ.w }}–{{ champ.l }} in the
+<a href="{{ url_for('series_page', year=year, sid=champ.id) }}">World Series</a></p></div>
+{% elif series %}
+<div class="meta"><p><span class="tag live">In progress</span> Postseason underway — results update every few hours
+(<a href="?refresh=1">refresh now</a>).</p></div>
+{% endif %}
+
+{% if not series %}
+<p>No postseason games found for {{ year }} yet.</p>
+{% else %}
+<h2>Bracket</h2>
+<div class="bracket">
+{% for rnd in ['Wild Card Series', 'Wild Card Game', 'DS', 'CS', 'World Series'] %}
+  {% if rnd in rounds %}
+  <div class="round">
+    <h3>{{ {'DS': 'Division Series', 'CS': 'League Championship Series'}.get(rnd, rnd) }}</h3>
+    {% for s in rounds[rnd]|sort(attribute='league') %}
+    <a class="card" href="{{ url_for('series_page', year=year, sid=s.id) }}">
+      <div class="lbl">{{ s.round }} · {{ s.start|date }}–{{ s.end|date }}
+        {% if s.status == 'live' %}<span class="tag live">live</span>{% endif %}</div>
+      <div class="row {{ 'won' if s.status == 'final' }}"><span>{{ team_name(s.winner, year) }}</span><span>{{ s.w }}</span></div>
+      <div class="row"><span>{{ team_name(s.loser, year) }}</span><span>{{ s.l }}</span></div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endfor %}
+</div>
+
+<h2>All Series</h2>
+<div class="tablewrap"><table class="stats">
+<thead><tr><th class="l">Round</th><th class="l">Winner</th><th>W</th><th>L</th><th class="l">Loser</th><th class="l">Dates</th><th>Games</th></tr></thead>
+<tbody>
+{% for s in series %}
+<tr><td class="l"><a href="{{ url_for('series_page', year=year, sid=s.id) }}">{{ s.round }}</a></td>
+<td class="l">{{ team_name(s.winner, year) }}{% if s.status == 'live' %} <span class="tag live">leads</span>{% endif %}</td>
+<td>{{ s.w }}</td><td>{{ s.l }}</td><td class="l">{{ team_name(s.loser, year) }}</td>
+<td class="l">{{ s.start|date }} – {{ s.end|date }}</td><td>{{ s.games|length }}</td></tr>
+{% endfor %}
+</tbody></table></div>
+{% endif %}
+
+<h2>{{ year }} Team Pages</h2>
+<div class="divs">
+{% for div, abbrs in by_div.items() %}
+  <div><h4>{{ div }}</h4><ul>
+  {% for a in abbrs|sort %}<li>{% if has_team(a, year) %}<a href="{{ url_for('team_season', team=a, year=year) }}">{{ team_name(a, year) }}</a>{% else %}<span class="dim">{{ team_name(a, year) }}</span>{% endif %}</li>{% endfor %}
+  </ul></div>
+{% endfor %}
+</div>
+{% endblock %}

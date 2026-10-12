@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2b2b2b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SavantRef">
+<title>{% block title %}SavantRef{% endblock %} | SavantRef</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+<link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
+</head>
+<body>
+<header class="site"><div class="wrap">
+  <a class="logo" href="{{ url_for('index') }}">Savant<span>Ref</span></a>
+  <button class="menu-btn" type="button" aria-label="Find a team or season" aria-expanded="false"
+          onclick="var o=document.body.classList.toggle('picker-open');this.setAttribute('aria-expanded',o)">☰</button>
+  <form id="goform" action="{{ url_for('go') }}">
+    <select name="team" aria-label="Team">
+      <option value="">Postseason</option>
+      {% for abbr, t in TEAMS|dictsort(by='value') %}<option value="{{ abbr }}">{{ t[0] }}</option>{% endfor %}
+    </select>
+    <select name="year" aria-label="Season">
+      {% for y in (built_years if STATIC else range(now_year, 2007, -1)) %}<option>{{ y }}</option>{% endfor %}
+    </select>
+    <button>Go</button>
+    <span class="go-msg" role="status"></span>
+  </form>
+</div></header>
+<main class="wrap">
+{% block body %}{% endblock %}
+</main>
+<footer class="wrap">
+  Data: Statcast pitch-by-pitch from Baseball Savant; WAR, wRC+, FIP and other value stats from FanGraphs.
+  Box-score values marked * are reconstructed from pitch data and can differ slightly from official scoring.
+  {% if STATIC %}{% if BUILT.updated %}Updated {{ BUILT.updated }}.{% endif %}{% else %}<a href="?refresh=1">Re-download this page's data</a>.{% endif %}
+</footer>
+<script src="{{ url_for('static', filename='sort.js') }}"></script>
+{% if STATIC %}
+<script>
+// Static site: the Go button jumps straight to the built page.
+(function () {
+  var base = {{ url_for('index')|tojson }};
+  var teams = {{ (BUILT.teams|list|sort)|tojson }};
+  var post = {{ (BUILT.post|list|sort)|tojson }};
+  var f = document.getElementById('goform');
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var t = f.team.value, y = f.year.value, msg = f.querySelector('.go-msg');
+    if (t) {
+      if (teams.indexOf(t + '-' + y) < 0) { msg.textContent = 'That team season isn\'t on the site yet.'; return; }
+      location.href = base + 'team/' + t + '/' + y + '/';
+    } else {
+      if (post.indexOf(+y) < 0) { msg.textContent = 'No postseason page for ' + y + ' yet.'; return; }
+      location.href = base + 'season/' + y + '/';
+    }
+  });
+})();
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register({{ url_for('index')|tojson }} + 'sw.js').catch(function () {});
+  });
+}
+</script>
+{% endif %}
+</body>
+</html>

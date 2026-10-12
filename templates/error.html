@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Error{% endblock %}
+{% block body %}
+<h1>Something went wrong</h1>
+<p>{{ error }}</p>
+<p class="note">If this happened while downloading, Baseball Savant may be slow or rate-limiting. Wait a minute and reload.
+If it keeps happening, copy the details below.</p>
+<details><summary>Details</summary><pre class="tb">{{ tb }}</pre></details>
+{% endblock %}
